@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.verlibr.ui.screens.MyScreen
 
 @Composable
 fun VerlibrNavigator() {
@@ -11,10 +12,10 @@ fun VerlibrNavigator() {
 
     NavHost(
         navController = navController,
-        startDestination = "main"
+        startDestination = "home"
     ) {
-        composable("main") {
-            TODO()
+        composable("home") {
+            MyScreen()
         }
 
         composable("poem") {
