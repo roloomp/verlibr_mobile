@@ -39,6 +39,7 @@ dependencies {
     implementation(platform("io.github.jan-tennert.supabase:bom:3.2.6"))
 
     implementation("io.github.jan-tennert.supabase:auth-kt")
+    implementation("io.github.jan-tennert.supabase:storage-kt:2.4.0")
     implementation("io.github.jan-tennert.supabase:postgrest-kt")
 
     implementation("io.ktor:ktor-client-okhttp:3.3.3")

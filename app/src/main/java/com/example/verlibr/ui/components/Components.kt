@@ -1,403 +1,224 @@
 package com.example.verlibr.ui.components
 
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.verlibr.R
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.window.Dialog
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.runtime.rememberCoroutineScope
-import com.example.verlibr.data.network.AuthService
-import kotlinx.coroutines.launch
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import com.example.verlibr.data.Profile
+import com.example.verlibr.data.AuthorPreview
+import com.example.verlibr.data.PoemPreview
+import com.example.verlibr.ui.theme.Cream
+import com.example.verlibr.ui.theme.Fog
+import com.example.verlibr.ui.theme.Stone
+import com.example.verlibr.ui.theme.Taupe
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppHeader(
     onLogoClick: () -> Unit,
-    onLoginClick: () -> Unit,
-    modifier: Modifier = Modifier
+    onLoginClick: () -> Unit
 ) {
     TopAppBar(
-        modifier = modifier.fillMaxWidth(),
         title = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier
-                    .clickable(onClick = onLogoClick)   // ← клик по всей группе иконка+текст
-                    .padding(vertical = 4.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.clickable(onClick = onLogoClick)
             ) {
                 Image(
-                    painter = painterResource(R.drawable.flower),
+                    painter = painterResource(R.drawable.ic_logo),
                     contentDescription = "На главную",
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(40.dp)
                 )
-                Text(
-                    text = "Verlibr",
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleLarge
-                )
+                Text("Verlibr", fontSize = 32.sp, fontWeight = FontWeight.Light)
             }
         },
         actions = {
-            TextButton(onClick = onLoginClick) {
+            Surface(
+                onClick = onLoginClick,
+                shape = RoundedCornerShape(4.dp),
+                color = MaterialTheme.colorScheme.secondary,
+                contentColor = MaterialTheme.colorScheme.onSecondary,
+                modifier = Modifier.padding(end = 16.dp)
+            ) {
                 Text(
                     text = "Вход",
-                    fontWeight = FontWeight.Medium
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)
                 )
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer,
-            titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
         )
     )
 }
 
-
+class BottomTab(val route: String, val label: String, @DrawableRes val icon: Int)
 
 @Composable
-fun LoginDialog(
-    onDismiss: () -> Unit,
-    onLogin: (email: String, password: String) -> Unit,
-    onGoToRegister: () -> Unit
+fun BottomBar(
+    tabs: List<BottomTab>,
+    currentRoute: String?,
+    onTabClick: (BottomTab) -> Unit
 ) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = MaterialTheme.shapes.medium,
-            tonalElevation = 6.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Вход",
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.weight(1f)
+    NavigationBar(containerColor = Taupe) {
+        tabs.forEach { tab ->
+            NavigationBarItem(
+                selected = currentRoute == tab.route,
+                onClick = { onTabClick(tab) },
+                icon = {
+                    Icon(
+                        painter = painterResource(tab.icon),
+                        contentDescription = tab.label,
+                        modifier = Modifier.size(40.dp)
                     )
-                    IconButton(onClick = onDismiss) {
-                        Icon(painterResource(R.drawable.flower), contentDescription = "Закрыть")
-                    }
-                }
-
-                Text(
-                    text = "Введите свои данные для входа в аккаунт",
-                    style = MaterialTheme.typography.bodyMedium
+                },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = Cream,
+                    unselectedIconColor = Cream.copy(alpha = 0.55f),
+                    indicatorColor = Color.Transparent
                 )
-
-                Spacer(Modifier.height(16.dp))
-
-                Text("Email *", style = MaterialTheme.typography.bodyMedium)
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    placeholder = { Text("Ваш email") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(Modifier.height(12.dp))
-
-                Text("Пароль *", style = MaterialTheme.typography.bodyMedium)
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    placeholder = { Text("Ваш пароль") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(Modifier.height(20.dp))
-
-                Button(
-                    onClick = { onLogin(email, password) },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Войти")
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                OutlinedButton(
-                    onClick = onGoToRegister,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Зарегистрироваться")
-                }
-            }
+            )
         }
     }
 }
 
 @Composable
-fun RegisterDialog(
-    onDismiss: () -> Unit,
-    onRegister: (email: String, name: String, password: String, confirmPassword: String) -> Unit,
-    onGoToLogin: () -> Unit
-) {
-    var email by remember { mutableStateOf("") }
-    var name by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
-
-    var emailError by remember { mutableStateOf(false) }
-    var nameError by remember { mutableStateOf(false) }
-    var passwordError by remember { mutableStateOf(false) }
-    var confirmError by remember { mutableStateOf(false) }
-
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = MaterialTheme.shapes.medium,
-            tonalElevation = 6.dp,
-            modifier = Modifier.fillMaxWidth()
+fun SearchPill(onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(40.dp),
+        shape = RoundedCornerShape(6.dp),
+        color = Fog,
+        border = BorderStroke(1.dp, Stone)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Создать аккаунт",
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.weight(1f)
-                    )
-                    IconButton(onClick = onDismiss) {
-                        Icon(painterResource(R.drawable.flower), contentDescription = "Закрыть")
-                    }
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                Text("Email *", style = MaterialTheme.typography.bodyMedium)
-
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = {
-                        email = it
-                        emailError = false
-                    },
-                    placeholder = { Text("Ваш email") },
-                    singleLine = true,
-                    isError = emailError,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Отображаемое имя *",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = "Ваш никнейм",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = {
-                        name = it
-                        nameError = false
-                    },
-                    placeholder = { Text("Ваш никнейм") },
-                    singleLine = true,
-                    isError = nameError,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(Modifier.height(12.dp))
-
-                Text("Пароль *", style = MaterialTheme.typography.bodyMedium)
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = {
-                        password = it
-                        passwordError = false
-                    },
-                    placeholder = { Text("Ваш пароль") },
-                    singleLine = true,
-                    isError = passwordError,
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(Modifier.height(12.dp))
-
-                Text("Подтвердите пароль *", style = MaterialTheme.typography.bodyMedium)
-                OutlinedTextField(
-                    value = confirmPassword,
-                    onValueChange = {
-                        confirmPassword = it
-                        confirmError = false
-                    },
-                    placeholder = { Text("Ваш пароль") },
-                    singleLine = true,
-                    isError = confirmError,
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(Modifier.height(20.dp))
-
-                Button(
-                    onClick = {
-                        emailError = email.isBlank()
-                        nameError = name.isBlank()
-                        passwordError = password.isBlank()
-                        confirmError = password != confirmPassword || confirmPassword.isBlank()
-
-                        if (!emailError && !nameError && !passwordError && !confirmError) {
-                            onRegister(email, name, password, confirmPassword)
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Создать аккаунт")
-                }
-
-                Spacer(Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Уже есть аккаунт? ",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    TextButton(onClick = onGoToLogin) {
-                        Text("Войти")
-                    }
-                }
-            }
+            Text(
+                text = "Строка, цитата, настроение или автор..",
+                modifier = Modifier.weight(1f),
+                color = Stone,
+                fontSize = 13.sp,
+                fontStyle = FontStyle.Italic,
+                maxLines = 1
+            )
+            Icon(
+                painter = painterResource(R.drawable.ic_search),
+                contentDescription = "Поиск",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
 
-
-
+/** Карточка с заголовком и строками, разделёнными линиями. */
 @Composable
-fun AuthDialogs(
-    controller: AuthController,
-    snackbarHostState: SnackbarHostState
+fun <T> SectionCard(
+    title: String,
+    items: List<T>,
+    row: @Composable (T) -> Unit
 ) {
-    val scope = rememberCoroutineScope()
-
-    if (controller.showLogin) {
-        LoginDialog(
-            onDismiss = { controller.closeLogin() },
-            onLogin = { email, password ->
-                scope.launch {
-                    val success = AuthService.login(email, password)
-                    controller.closeLogin()
-                    if (success) {
-                        val profile = AuthService.getCurrentProfile()
-                        controller.setProfile(profile)
-                        snackbarHostState.showSnackbar("Вы вошли как ${profile?.name ?: email}")
-                    } else {
-                        snackbarHostState.showSnackbar("Неверный email или пароль")
-                    }
-                }
-            },
-            onGoToRegister = {
-                controller.closeLogin()
-                controller.openRegister()
-            }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(24.dp))
+            .padding(horizontal = 26.dp, vertical = 16.dp)
+    ) {
+        Text(
+            text = title,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            color = MaterialTheme.colorScheme.primary,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Light,
+            textAlign = TextAlign.Center
         )
+        items.forEachIndexed { index, item ->
+            if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+            row(item)
+        }
     }
-
-    if (controller.showRegister) {
-        RegisterDialog(
-            onDismiss = { controller.closeRegister() },
-            onRegister = { email, name, password, _ ->
-                scope.launch {
-                    val result = AuthService.register(name, email, password)
-                    controller.closeRegister()
-                    if (result.isSuccess) {
-                        val profile = AuthService.getCurrentProfile()
-                        controller.setProfile(profile)
-                        snackbarHostState.showSnackbar("Аккаунт создан")
-                    } else {
-                        snackbarHostState.showSnackbar(
-                            "Ошибка: ${result.exceptionOrNull()?.message}"
-                        )
-                    }
-                }
-            },
-            onGoToLogin = {
-                controller.closeRegister()
-                controller.openLogin()
-            }
-        )
-    }
-}
-
-
-
-class AuthController {
-    var showLogin by mutableStateOf(false)
-        internal set
-
-    var showRegister by mutableStateOf(false)
-        internal set
-
-    /** null — не залогинен, иначе — профиль */
-    var profile by mutableStateOf<Profile?>(null)
-        internal set
-
-    val isLoggedIn: Boolean get() = profile != null
-
-    fun openLogin() { showLogin = true }
-    fun closeLogin() { showLogin = false }
-
-    fun openRegister() { showRegister = true }
-    fun closeRegister() { showRegister = false }
-
-    fun setProfile(p: Profile?) { profile = p }
 }
 
 @Composable
-fun rememberAuthController(): AuthController = remember { AuthController() }
+fun PoemRow(poem: PoemPreview, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(poem.title, fontSize = 16.sp)
+            Text(poem.author, fontSize = 12.sp)
+        }
+        Text(poem.year.toString(), fontSize = 16.sp)
+    }
+}
+
+@Composable
+fun AuthorRow(author: AuthorPreview, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Заглушка вместо аватара
+        Spacer(
+            Modifier
+                .size(40.dp)
+                .background(Taupe, CircleShape)
+                .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+        )
+        Spacer(Modifier.width(38.dp))
+        Column {
+            Text(author.name, fontSize = 16.sp)
+            Text(author.years, fontSize = 12.sp)
+        }
+    }
+}
