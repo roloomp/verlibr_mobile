@@ -21,6 +21,7 @@ import com.example.verlibr.ui.screens.FavoriteScreen
 import com.example.verlibr.ui.screens.HomeScreen
 import com.example.verlibr.ui.screens.HotScreen
 import com.example.verlibr.ui.screens.PlaceholderScreen
+import com.example.verlibr.ui.screens.PoemScreen
 
 private val tabs = listOf(
     BottomTab("hot", "Горячее", R.drawable.ic_fire),
@@ -67,16 +68,24 @@ fun VerlibrNavigator() {
         ) {
             composable("home") {
                 HomeScreen(
-                    onPoemClick = { navController.navigate("poem/$it") },
-                    onAuthorClick = { navController.navigate("author/$it") },
-                    onSearchClick = { openTab("search") }
+                    onPoemClick = {navController.navigate("poem/$it")},
+                    onAuthorClick = {navController.navigate("author/$it")},
+                    onSearchClick = {openTab("search") }
                 )
             }
-            composable("hot") { HotScreen(onPoemClick = { navController.navigate("poem/$it") }) }
-            composable("favorite") { FavoriteScreen(onPoemClick = { navController.navigate("poem/$it") }) }
+            composable("hot") {
+                HotScreen(
+                    onPoemClick = {navController.navigate("poem/$it")}
+                )
+            }
+            composable("favorite") {
+                FavoriteScreen(
+                    onPoemClick = {navController.navigate("poem/$it")}
+                )
+            }
             composable("search") { PlaceholderScreen("Поиск") }
             composable("profile") { PlaceholderScreen("Профиль") }
-            composable("poem/{id}") { PlaceholderScreen("Стихотворение") }
+            composable("poem/{id}") { PoemScreen() }
             composable("author/{id}") { PlaceholderScreen("Автор") }
         }
     }

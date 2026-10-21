@@ -30,7 +30,7 @@ fun PoemListScreen(
         state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 28.dp, vertical = 22.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         items(viewModel.poems, key = { it.id }) { poem ->
             PoemCard(poem) { onPoemClick(poem.id) }

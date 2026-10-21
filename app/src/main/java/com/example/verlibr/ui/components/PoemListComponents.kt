@@ -79,16 +79,16 @@ fun Pagination(page: Int, pageCount: Int, onPageClick: (Int) -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (page > 1) PageButton("<", selected = false, modifier = Modifier.weight(1f)) { onPageClick(page - 1) }
+        if (page > 1) PageButton("<", selected = false, modifier = Modifier) { onPageClick(page - 1) }
 
         pages.forEachIndexed { index, p ->
             if (index > 0 && p - pages[index - 1] > 1) {
-                PageButton("…", selected = false, enabled = false, modifier = Modifier.weight(1f)) {}
+                PageButton("…", selected = false, enabled = false, modifier = Modifier) {}
             }
-            PageButton(p.toString(), selected = p == page, modifier = Modifier.weight(1f)) { onPageClick(p) }
+            PageButton(p.toString(), selected = p == page, modifier = Modifier) { onPageClick(p) }
         }
 
-        if (page < pageCount) PageButton(">", selected = false, modifier = Modifier.weight(1f)) { onPageClick(page + 1) }
+        if (page < pageCount) PageButton(">", selected = false, modifier = Modifier) { onPageClick(page + 1) }
     }
 }
 
@@ -105,8 +105,7 @@ private fun PageButton(
     val shape = RoundedCornerShape(6.dp)
     Box(
         modifier = modifier
-            .widthIn(max = 16.dp)
-            .aspectRatio(1f)
+            .size(34.dp)
             .clip(shape)
             .background(if (selected) accent else Color.Transparent)
             .border(1.5.dp, accent, shape)
@@ -115,7 +114,7 @@ private fun PageButton(
     ) {
         Text(
             text = text,
-            fontSize = 14.sp,
+            fontSize = 16.sp,
             maxLines = 1,
             color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground
         )

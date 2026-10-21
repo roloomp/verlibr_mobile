@@ -51,7 +51,6 @@ object AuthService {
         }
     }
 
-    /** Достаёт профиль текущего залогиненного пользователя из таблицы profile */
     suspend fun getCurrentProfile(): Profile? {
         return try {
             val userId = SupabaseConnect.client.auth.currentUserOrNull()?.id
