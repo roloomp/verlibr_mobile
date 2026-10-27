@@ -276,7 +276,7 @@ private fun SortDropdown(sort: ReviewSort, onSelect: (ReviewSort) -> Unit) {
 }
 
 @Composable
-fun ReviewCard(review: Review, onLike: () -> Unit) {
+fun ReviewCard(review: Review, onLike: (() -> Unit)? = null) {
     var expanded by rememberSaveable(review.id) { mutableStateOf(false) }
     val shape = RoundedCornerShape(12.dp)
 
@@ -353,13 +353,13 @@ private fun Avatar(name: String) {
 }
 
 @Composable
-fun LikePill(count: Int, liked: Boolean, onClick: () -> Unit) {
+fun LikePill(count: Int, liked: Boolean, onClick: (() -> Unit)? = null) {
     val shape = RoundedCornerShape(16.dp)
     Row(
         modifier = Modifier
             .clip(shape)
             .border(1.5.dp, MaterialTheme.colorScheme.outline, shape)
-            .clickable(onClick = onClick)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 14.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)

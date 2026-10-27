@@ -195,7 +195,7 @@ fun PoemRow(poem: PoemPreview, onClick: () -> Unit) {
             Text(poem.title, fontSize = 16.sp)
             Text(poem.author, fontSize = 12.sp)
         }
-        Text(poem.year.toString(), fontSize = 16.sp)
+        Text(poem.year?.toString().orEmpty(), fontSize = 16.sp)
     }
 }
 

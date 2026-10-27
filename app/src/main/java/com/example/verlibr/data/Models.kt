@@ -18,10 +18,13 @@ data class PoemPreview(
     val id: String,
     val title: String,
     val author: String,
-    val year: Int,
+    val year: Int?,
     val likes: Int = 0,
     val comments: Int = 0
 )
+
+/** Страница списка стихов и общее число записей. */
+class PoemsPage(val items: List<PoemPreview>, val total: Int)
 
 data class AuthorPreview(
     val id: String,
@@ -74,3 +77,21 @@ enum class ReviewSort(val label: String) {
 }
 
 enum class RateMode { Review, Plain }
+
+/** Стихотворение в результатах поиска: превью + данные для поиска и фильтров. */
+data class SearchPoem(
+    val preview: PoemPreview,
+    val text: String,
+    val tags: Map<String, String>,
+    val rating: Int,
+    val favorite: Boolean,
+    val rated: Boolean
+)
+
+/** Оценка пользователя без рецензии. */
+data class PoemRating(
+    val poem: PoemPreview,
+    val scores: List<Int>
+) {
+    val total: Int get() = scores.sum()
+}

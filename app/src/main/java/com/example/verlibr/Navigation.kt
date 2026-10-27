@@ -22,6 +22,8 @@ import com.example.verlibr.ui.screens.HomeScreen
 import com.example.verlibr.ui.screens.HotScreen
 import com.example.verlibr.ui.screens.PlaceholderScreen
 import com.example.verlibr.ui.screens.PoemScreen
+import com.example.verlibr.ui.screens.ProfileScreen
+import com.example.verlibr.ui.screens.SearchScreen
 
 private val tabs = listOf(
     BottomTab("hot", "Горячее", R.drawable.ic_fire),
@@ -83,8 +85,16 @@ fun VerlibrNavigator() {
                     onPoemClick = {navController.navigate("poem/$it")}
                 )
             }
-            composable("search") { PlaceholderScreen("Поиск") }
-            composable("profile") { PlaceholderScreen("Профиль") }
+            composable("search") {
+                SearchScreen(
+                    onPoemClick = {navController.navigate("poem/$it")}
+                )
+            }
+            composable("profile") {
+                ProfileScreen(
+                    onPoemClick = {navController.navigate("poem/$it")}
+                )
+            }
             composable("poem/{id}") { PoemScreen() }
             composable("author/{id}") { PlaceholderScreen("Автор") }
         }
