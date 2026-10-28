@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,6 +37,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.verlibr.R
@@ -49,8 +51,10 @@ import com.example.verlibr.ui.theme.Taupe
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppHeader(
+    userName: String?,
     onLogoClick: () -> Unit,
-    onLoginClick: () -> Unit
+    onLoginClick: () -> Unit,
+    onProfileClick: () -> Unit
 ) {
     TopAppBar(
         title = {
@@ -69,16 +73,20 @@ fun AppHeader(
         },
         actions = {
             Surface(
-                onClick = onLoginClick,
+                onClick = if (userName == null) onLoginClick else onProfileClick,
                 shape = RoundedCornerShape(4.dp),
                 color = MaterialTheme.colorScheme.secondary,
                 contentColor = MaterialTheme.colorScheme.onSecondary,
                 modifier = Modifier.padding(end = 16.dp)
             ) {
                 Text(
-                    text = "Вход",
+                    text = userName ?: "Вход",
                     fontSize = 14.sp,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .widthIn(max = 140.dp)
+                        .padding(horizontal = 14.dp, vertical = 4.dp)
                 )
             }
         },

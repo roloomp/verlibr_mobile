@@ -7,60 +7,87 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.verlibr.data.MAX_REVIEW_LENGTH
 import com.example.verlibr.data.MIN_REVIEW_LENGTH
 import com.example.verlibr.data.Poem
-import com.example.verlibr.data.PoemTag
 import com.example.verlibr.data.RateMode
 import com.example.verlibr.data.Review
 import com.example.verlibr.data.ReviewSort
-import java.time.LocalDate
-import java.util.UUID
+import com.example.verlibr.data.network.PoemData
+import com.example.verlibr.data.network.PoemDetailsService
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 class PoemViewModel(savedStateHandle: SavedStateHandle) : ViewModel() {
 
-    private val id: String = savedStateHandle["id"] ?: ""
+    private val id: Int? = savedStateHandle.get<String>("id")?.toIntOrNull()
+    private var userId: String? = null
+    private var loadJob: Job? = null
+    private var likeJob: Job? = null
+    private var favoriteJob: Job? = null
+    private val busyReviewLikes = mutableSetOf<String>()
 
-    val poem = Poem(
-        id = id,
-        title = "Канал Грибоедова",
-        author = "Владислав Савенко",
-        year = 2026,
-        text = """
-            Над каналом заледенелым,
-            Где в соборе подсветки след,
-            Покурить – не благое дело,
-            Дописать, не допеть куплет.
+    var poem by mutableStateOf<Poem?>(null)
+        private set
+    var loading by mutableStateOf(true)
+        private set
+    var error by mutableStateOf(false)
+        private set
+    var submitting by mutableStateOf(false)
+        private set
 
-            Жизнь оттает и серой льдинкой
-            По водице уйдёт в залив,
-            Непредсказанным поединком,
-            Все печали к единой слив,
+    /** Одноразовое сообщение для пользователя (Toast). */
+    var message by mutableStateOf<String?>(null)
+        private set
 
-            Где крылатые львы застыли,
-            Золотистый рисуя взмах,
-            Где не встречу тебя, не ты ли
-            В мой вчерашний вселилась страх?
+    fun consumeMessage() { message = null }
 
-            Что из жизни, как крошки хлеба,
-            Сгинет прошлое, не всерьёз.
-            И какого нам ждать ночлега?
-            Остаётся немым вопрос.
-        """.trimIndent(),
-        tags = listOf(
-            PoemTag("Тип", "авторский стих"),
-            PoemTag("Жанр", "философская лирика"),
-            PoemTag("Настроение", "меланхоличное"),
-            PoemTag("Стихосложение", "силлабо-тоническое"),
-            PoemTag("Базовая стопа", "трёхсложник"),
-            PoemTag("Строфа", "катрены"),
-            PoemTag("Способ рифмовки", "ABAB")
-        )
-    )
+    /** Загружает стих; userId = null для гостя. Вызывается при открытии и при смене пользователя. */
+    fun load(user: String?) {
+        userId = user
+        val poemId = id
+        if (poemId == null) {
+            error = true
+            loading = false
+            return
+        }
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            loading = poem == null
+            error = false
+            try {
+                apply(PoemDetailsService.load(poemId, user))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                e.printStackTrace()
+                if (poem == null) error = true else message = "Не удалось обновить данные"
+            } finally {
+                loading = false
+            }
+        }
+    }
+
+    private fun apply(data: PoemData) {
+        poem = data.poem
+        likes = data.likes
+        liked = data.liked
+        favorite = data.favorite
+        reviews = data.reviews
+        allTotals = data.allTotals
+        data.mine?.let { mine ->
+            mine.scores.forEachIndexed { i, v -> scores[i] = v }
+            rateMode = if (mine.hasReview) RateMode.Review else RateMode.Plain
+            reviewTitle = mine.title
+            reviewText = mine.text
+        }
+    }
 
     // ---- лайк / избранное ----
-    var likes by mutableIntStateOf(7)
+    var likes by mutableIntStateOf(0)
         private set
     var liked by mutableStateOf(false)
         private set
@@ -68,12 +95,45 @@ class PoemViewModel(savedStateHandle: SavedStateHandle) : ViewModel() {
         private set
 
     fun toggleLike() {
-        liked = !liked
-        likes += if (liked) 1 else -1
+        val user = userId ?: return
+        val poemId = id ?: return
+        if (likeJob?.isActive == true) return
+        val target = !liked
+        liked = target
+        likes += if (target) 1 else -1
+        likeJob = viewModelScope.launch {
+            try {
+                PoemDetailsService.setLike(poemId, user, target)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                e.printStackTrace()
+                liked = !target
+                likes += if (target) -1 else 1
+                message = "Не удалось поставить лайк"
+            }
+        }
     }
+
     fun toggleFavorite() {
-        favorite = !favorite
+        val user = userId ?: return
+        val poemId = id ?: return
+        if (favoriteJob?.isActive == true) return
+        val target = !favorite
+        favorite = target
+        favoriteJob = viewModelScope.launch {
+            try {
+                PoemDetailsService.setFavorite(poemId, user, target)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                e.printStackTrace()
+                favorite = !target
+                message = "Не удалось изменить избранное"
+            }
+        }
     }
+
     var infoExpanded by mutableStateOf(false)
         private set
     var rateExpanded by mutableStateOf(false)
@@ -82,23 +142,9 @@ class PoemViewModel(savedStateHandle: SavedStateHandle) : ViewModel() {
     fun toggleInfo() { infoExpanded = !infoExpanded }
     fun toggleRate() { rateExpanded = !rateExpanded }
 
-    private val reviews = mutableStateListOf(
-        Review(
-            id = "r0",
-            author = "Владислав Савенко",
-            title = "Над заледенелым каналом: разговор с городом и собой",
-            text = "Короткое, но ёмкое стихотворение, в котором пейзаж становится исповедью. " +
-                "Автору удивительно точно удалось передать то щемящее чувство, когда прошлое давит " +
-                "на плечи, а настоящее утекает сквозь пальцы, как талая вода в залив.\n\n" +
-                "Особую прелесть придают детали: «подсветки след» в соборе, застывшие крылатые львы, " +
-                "вопрос, обращённый то ли к городу, то ли к ушедшему человеку. Стихотворение держит " +
-                "читателя в состоянии лёгкой грусти до самой последней строки — и отпускает уже другим.",
-            scores = listOf(9, 9, 9, 9, 9),
-            date = LocalDate.of(2026, 2, 28),
-            likes = 7
-        )
-    )
-    private val plainRatings = mutableStateListOf<Int>()
+    // ---- рецензии ----
+    private var reviews by mutableStateOf<List<Review>>(emptyList())
+    private var allTotals by mutableStateOf<List<Int>>(emptyList())
 
     var sort by mutableStateOf(ReviewSort.New)
         private set
@@ -114,20 +160,43 @@ class PoemViewModel(savedStateHandle: SavedStateHandle) : ViewModel() {
     val reviewsCount: Int get() = reviews.size
 
     fun toggleReviewLike(reviewId: String) {
-        val index = reviews.indexOfFirst { it.id == reviewId }
-        if (index < 0) return
-        val r = reviews[index]
-        reviews[index] = r.copy(liked = !r.liked, likes = r.likes + if (r.liked) -1 else 1)
+        val user = userId ?: return
+        val review = reviews.firstOrNull { it.id == reviewId } ?: return
+        val dbId = reviewId.toIntOrNull() ?: return
+        if (!busyReviewLikes.add(reviewId)) return
+        val target = !review.liked
+        updateReview(reviewId, target)
+        viewModelScope.launch {
+            try {
+                PoemDetailsService.setReviewLike(dbId, user, target)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                e.printStackTrace()
+                updateReview(reviewId, !target)
+                message = "Не удалось поставить лайк"
+            } finally {
+                busyReviewLikes.remove(reviewId)
+            }
+        }
     }
 
-    val ratingsCount: Int get() = reviews.size + plainRatings.size
+    private fun updateReview(reviewId: String, liked: Boolean) {
+        reviews = reviews.map {
+            if (it.id != reviewId) it
+            else it.copy(liked = liked, likes = (it.likes + if (liked) 1 else -1).coerceAtLeast(0))
+        }
+    }
+
+    val ratingsCount: Int get() = allTotals.size
 
     val averageWithReview: Int? get() = reviews.map { it.total }.averageRounded()
 
-    val averageWithoutReview: Int? get() = (reviews.map { it.total } + plainRatings).averageRounded()
+    val averageWithoutReview: Int? get() = allTotals.averageRounded()
 
     private fun List<Int>.averageRounded(): Int? = if (isEmpty()) null else average().roundToInt()
 
+    // ---- форма оценки ----
     var rateMode by mutableStateOf(RateMode.Review)
         private set
     val scores = mutableStateListOf(9, 9, 9, 9, 9)
@@ -152,24 +221,28 @@ class PoemViewModel(savedStateHandle: SavedStateHandle) : ViewModel() {
         reviewText = ""
     }
 
+    /** Одна оценка на стих: повторная отправка заменяет прежнюю. */
     fun submit() {
-        if (!canSubmit) return
-        if (rateMode == RateMode.Review) {
-            reviews.add(
-                Review(
-                    id = UUID.randomUUID().toString(),
-                    author = "Вы", // TODO: имя текущего пользователя после реализации авторизации
-                    title = reviewTitle.trim(),
-                    text = reviewText.trim(),
-                    scores = scores.toList(),
-                    date = LocalDate.now()
-                )
-            )
-        } else {
-            plainRatings.add(draftTotal)
+        val user = userId ?: return
+        val poemId = id ?: return
+        if (!canSubmit || submitting) return
+        val review = if (rateMode == RateMode.Review) reviewTitle.trim() to reviewText.trim() else null
+        val values = scores.toList()
+        viewModelScope.launch {
+            submitting = true
+            try {
+                PoemDetailsService.submitRating(poemId, user, values, review)
+                apply(PoemDetailsService.load(poemId, user))
+                rateExpanded = false
+                message = "Оценка сохранена"
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                e.printStackTrace()
+                message = "Не удалось отправить оценку"
+            } finally {
+                submitting = false
+            }
         }
-        clearDraft()
-        scores.indices.forEach { scores[it] = 9 }
-        rateExpanded = false
     }
 }

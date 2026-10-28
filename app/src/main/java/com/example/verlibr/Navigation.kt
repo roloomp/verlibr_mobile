@@ -7,16 +7,19 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.verlibr.data.network.AuthService
 import com.example.verlibr.ui.components.AppHeader
 import com.example.verlibr.ui.components.AuthDialogs
 import com.example.verlibr.ui.components.BottomBar
 import com.example.verlibr.ui.components.BottomTab
 import com.example.verlibr.ui.components.rememberAuthController
+import com.example.verlibr.ui.screens.AuthRequiredScreen
 import com.example.verlibr.ui.screens.FavoriteScreen
 import com.example.verlibr.ui.screens.HomeScreen
 import com.example.verlibr.ui.screens.HotScreen
@@ -24,6 +27,7 @@ import com.example.verlibr.ui.screens.PlaceholderScreen
 import com.example.verlibr.ui.screens.PoemScreen
 import com.example.verlibr.ui.screens.ProfileScreen
 import com.example.verlibr.ui.screens.SearchScreen
+import kotlinx.coroutines.launch
 
 private val tabs = listOf(
     BottomTab("hot", "Горячее", R.drawable.ic_fire),
@@ -39,6 +43,7 @@ fun VerlibrNavigator() {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val authController = rememberAuthController()
+    val scope = rememberCoroutineScope()
 
     fun openTab(route: String) {
         navController.navigate(route) {
@@ -50,8 +55,10 @@ fun VerlibrNavigator() {
     Scaffold(
         topBar = {
             AppHeader(
+                userName = authController.profile?.name,
                 onLogoClick = { openTab("home") },
-                onLoginClick = authController::openLogin
+                onLoginClick = authController::openLogin,
+                onProfileClick = { openTab("profile") }
             )
         },
         bottomBar = {
@@ -81,9 +88,13 @@ fun VerlibrNavigator() {
                 )
             }
             composable("favorite") {
-                FavoriteScreen(
-                    onPoemClick = {navController.navigate("poem/$it")}
-                )
+                if (authController.isLoggedIn) {
+                    FavoriteScreen(
+                        onPoemClick = {navController.navigate("poem/$it")}
+                    )
+                } else {
+                    AuthRequiredScreen("Войдите или зарегистрируйтесь, чтобы открыть избранное")
+                }
             }
             composable("search") {
                 SearchScreen(
@@ -91,11 +102,30 @@ fun VerlibrNavigator() {
                 )
             }
             composable("profile") {
-                ProfileScreen(
-                    onPoemClick = {navController.navigate("poem/$it")}
+                if (authController.isLoggedIn) {
+                    ProfileScreen(
+                        onPoemClick = {navController.navigate("poem/$it")},
+                        onLogout = {
+                            scope.launch {
+                                if (AuthService.logout()) {
+                                    authController.updateProfile(null)
+                                    snackbarHostState.showSnackbar("Вы вышли из аккаунта")
+                                } else {
+                                    snackbarHostState.showSnackbar("Не удалось выйти")
+                                }
+                            }
+                        }
+                    )
+                } else {
+                    AuthRequiredScreen("Войдите или зарегистрируйтесь, чтобы открыть профиль")
+                }
+            }
+            composable("poem/{id}") {
+                PoemScreen(
+                    userId = authController.profile?.id,
+                    onRequireLogin = authController::openLogin
                 )
             }
-            composable("poem/{id}") { PoemScreen() }
             composable("author/{id}") { PlaceholderScreen("Автор") }
         }
     }

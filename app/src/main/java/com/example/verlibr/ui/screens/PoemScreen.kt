@@ -22,14 +22,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.foundation.background
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -63,9 +66,31 @@ import com.example.verlibr.ui.theme.Taupe
 import com.example.verlibr.ui.viewmodels.PoemViewModel
 
 @Composable
-fun PoemScreen(viewModel: PoemViewModel = viewModel()) {
-    val poem = viewModel.poem
+fun PoemScreen(
+    userId: String?,
+    onRequireLogin: () -> Unit,
+    viewModel: PoemViewModel = viewModel()
+) {
     val context = LocalContext.current
+
+    LaunchedEffect(userId) { viewModel.load(userId) }
+    viewModel.message?.let { text ->
+        LaunchedEffect(text) {
+            Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+            viewModel.consumeMessage()
+        }
+    }
+
+    val poem = viewModel.poem
+    if (poem == null) {
+        PoemStatus(viewModel.loading, viewModel.error) { viewModel.load(userId) }
+        return
+    }
+
+    fun requireLogin(action: () -> Unit) {
+        if (userId == null) onRequireLogin() else action()
+    }
+
     val shareText = "«${poem.title}» — ${poem.author}"
 
     LazyColumn(
@@ -82,7 +107,7 @@ fun PoemScreen(viewModel: PoemViewModel = viewModel()) {
                 ) {
                     Text(poem.author, fontSize = 20.sp, fontStyle = FontStyle.Italic)
                     Text("·", fontSize = 20.sp, color = Stone)
-                    Text("${poem.year} г.", fontSize = 20.sp, color = Stone)
+                    Text("${poem.year?.toString().orEmpty()} г.", fontSize = 20.sp, color = Stone)
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline)
             }
@@ -103,7 +128,7 @@ fun PoemScreen(viewModel: PoemViewModel = viewModel()) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Row(
-                        modifier = Modifier.clickable(onClick = viewModel::toggleLike),
+                        modifier = Modifier.clickable { requireLogin(viewModel::toggleLike) },
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
@@ -123,7 +148,7 @@ fun PoemScreen(viewModel: PoemViewModel = viewModel()) {
                         modifier = Modifier
                             .size(28.dp)
                             .clip(CircleShape)
-                            .clickable(onClick = viewModel::toggleFavorite)
+                            .clickable { requireLogin(viewModel::toggleFavorite) }
                     )
                     Spacer(Modifier.weight(1f))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -161,7 +186,7 @@ fun PoemScreen(viewModel: PoemViewModel = viewModel()) {
 
         item {
             CollapsiblePanel("Оценить работу", viewModel.rateExpanded, viewModel::toggleRate) {
-                RateForm(viewModel)
+                RateForm(viewModel) { requireLogin(viewModel::submit) }
             }
         }
 
@@ -170,13 +195,13 @@ fun PoemScreen(viewModel: PoemViewModel = viewModel()) {
         }
 
         items(viewModel.sortedReviews, key = { it.id }) { review ->
-            ReviewCard(review, onLike = { viewModel.toggleReviewLike(review.id) })
+            ReviewCard(review, onLike = { requireLogin { viewModel.toggleReviewLike(review.id) } })
         }
     }
 }
 
 @Composable
-private fun RateForm(viewModel: PoemViewModel) {
+private fun RateForm(viewModel: PoemViewModel, onSubmit: () -> Unit) {
     val fieldColors = OutlinedTextFieldDefaults.colors(
         focusedBorderColor = Taupe,
         unfocusedBorderColor = Taupe,
@@ -258,7 +283,7 @@ private fun RateForm(viewModel: PoemViewModel) {
                     .alpha(if (viewModel.canSubmit) 1f else 0.4f)
                     .background(Moss, CircleShape)
                     .clip(CircleShape)
-                    .clickable(enabled = viewModel.canSubmit, onClick = viewModel::submit),
+                    .clickable(enabled = viewModel.canSubmit && !viewModel.submitting, onClick = onSubmit),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -268,6 +293,22 @@ private fun RateForm(viewModel: PoemViewModel) {
                     modifier = Modifier.size(32.dp)
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun PoemStatus(loading: Boolean, error: Boolean, onRetry: () -> Unit) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        when {
+            error -> Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text("Не удалось загрузить стих", fontSize = 16.sp)
+                OutlinedButton(onClick = onRetry) { Text("Повторить") }
+            }
+            loading -> CircularProgressIndicator(color = Taupe)
         }
     }
 }

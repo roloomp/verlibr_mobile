@@ -10,6 +10,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -34,6 +36,7 @@ import com.example.verlibr.ui.viewmodels.ProfileViewModel
 @Composable
 fun ProfileScreen(
     onPoemClick: (String) -> Unit,
+    onLogout: () -> Unit,
     viewModel: ProfileViewModel = viewModel()
 ) {
     val listState = rememberLazyListState()
@@ -48,6 +51,11 @@ fun ProfileScreen(
     ) {
         item { ProfileBanner() }
         item { ProfileInfoCard(viewModel.profile, viewModel.registeredAt) }
+        item {
+            OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) {
+                Text("Выйти из аккаунта")
+            }
+        }
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
