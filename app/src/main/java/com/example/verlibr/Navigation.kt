@@ -9,24 +9,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.verlibr.data.network.AuthService
 import com.example.verlibr.ui.components.AppHeader
 import com.example.verlibr.ui.components.AuthDialogs
 import com.example.verlibr.ui.components.BottomBar
 import com.example.verlibr.ui.components.BottomTab
 import com.example.verlibr.ui.components.rememberAuthController
-import com.example.verlibr.ui.screens.AuthRequiredScreen
+import com.example.verlibr.ui.screens.AuthorScreen
 import com.example.verlibr.ui.screens.FavoriteScreen
 import com.example.verlibr.ui.screens.HomeScreen
 import com.example.verlibr.ui.screens.HotScreen
-import com.example.verlibr.ui.screens.PlaceholderScreen
 import com.example.verlibr.ui.screens.PoemScreen
 import com.example.verlibr.ui.screens.ProfileScreen
 import com.example.verlibr.ui.screens.SearchScreen
+import com.example.verlibr.ui.viewmodels.AuthState
+import com.example.verlibr.ui.viewmodels.AuthViewModel
 import kotlinx.coroutines.launch
 
 private val tabs = listOf(
@@ -38,12 +39,15 @@ private val tabs = listOf(
 )
 
 @Composable
-fun VerlibrNavigator() {
+fun VerlibrNavigator(authViewModel: AuthViewModel = viewModel()) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val authController = rememberAuthController()
     val scope = rememberCoroutineScope()
+
+    val profile = authViewModel.profile
+    val authLoading = authViewModel.state is AuthState.Loading
 
     fun openTab(route: String) {
         navController.navigate(route) {
@@ -55,7 +59,8 @@ fun VerlibrNavigator() {
     Scaffold(
         topBar = {
             AppHeader(
-                userName = authController.profile?.name,
+                userName = profile?.name,
+                loading = authLoading,
                 onLogoClick = { openTab("home") },
                 onLoginClick = authController::openLogin,
                 onProfileClick = { openTab("profile") }
@@ -88,13 +93,12 @@ fun VerlibrNavigator() {
                 )
             }
             composable("favorite") {
-                if (authController.isLoggedIn) {
-                    FavoriteScreen(
-                        onPoemClick = {navController.navigate("poem/$it")}
-                    )
-                } else {
-                    AuthRequiredScreen("Войдите или зарегистрируйтесь, чтобы открыть избранное")
-                }
+                FavoriteScreen(
+                    userId = authViewModel.userId,
+                    loading = authLoading,
+                    onPoemClick = {navController.navigate("poem/$it")},
+                    onLoginClick = authController::openLogin
+                )
             }
             composable("search") {
                 SearchScreen(
@@ -102,33 +106,37 @@ fun VerlibrNavigator() {
                 )
             }
             composable("profile") {
-                if (authController.isLoggedIn) {
-                    ProfileScreen(
-                        onPoemClick = {navController.navigate("poem/$it")},
-                        onLogout = {
-                            scope.launch {
-                                if (AuthService.logout()) {
-                                    authController.updateProfile(null)
-                                    snackbarHostState.showSnackbar("Вы вышли из аккаунта")
-                                } else {
-                                    snackbarHostState.showSnackbar("Не удалось выйти")
-                                }
-                            }
+                ProfileScreen(
+                    profile = profile,
+                    loading = authLoading,
+                    onPoemClick = {navController.navigate("poem/$it")},
+                    onLoginClick = authController::openLogin,
+                    onLogout = {
+                        scope.launch {
+                            val ok = authViewModel.logout()
+                            snackbarHostState.showSnackbar(
+                                if (ok) "Вы вышли из аккаунта" else "Не удалось выйти"
+                            )
                         }
-                    )
-                } else {
-                    AuthRequiredScreen("Войдите или зарегистрируйтесь, чтобы открыть профиль")
-                }
+                    }
+                )
             }
             composable("poem/{id}") {
                 PoemScreen(
-                    userId = authController.profile?.id,
-                    onRequireLogin = authController::openLogin
+                    userId = authViewModel.userId,
+                    onLoginRequired = authController::openLogin
                 )
             }
-            composable("author/{id}") { PlaceholderScreen("Автор") }
+            composable("author/{id}") {
+                AuthorScreen(onPoemClick = { navController.navigate("poem/$it") })
+            }
         }
     }
 
-    AuthDialogs(controller = authController, snackbarHostState = snackbarHostState)
+    AuthDialogs(
+        controller = authController,
+        snackbarHostState = snackbarHostState,
+        onLogin = { email, password -> authViewModel.login(email, password) },
+        onRegister = { name, email, password -> authViewModel.register(name, email, password) }
+    )
 }

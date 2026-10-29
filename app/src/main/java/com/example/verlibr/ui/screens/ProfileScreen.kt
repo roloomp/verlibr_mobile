@@ -6,9 +6,13 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -17,8 +21,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import com.example.verlibr.data.Profile
 import com.example.verlibr.ui.components.EmptyHint
+import com.example.verlibr.ui.components.GuestHint
 import com.example.verlibr.ui.components.Pagination
 import com.example.verlibr.ui.components.PoemCard
 import com.example.verlibr.ui.components.ProfileBanner
@@ -35,12 +44,37 @@ import com.example.verlibr.ui.viewmodels.ProfileViewModel
 
 @Composable
 fun ProfileScreen(
+    profile: Profile?,
+    loading: Boolean,
     onPoemClick: (String) -> Unit,
+    onLoginClick: () -> Unit,
     onLogout: () -> Unit,
     viewModel: ProfileViewModel = viewModel()
 ) {
+    when {
+        loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        profile == null -> GuestProfile(onLoginClick)
+        else -> ProfileContent(profile, onPoemClick, onLogout, viewModel)
+    }
+}
+
+@Composable
+private fun GuestProfile(onLoginClick: () -> Unit) {
+    GuestHint("Войдите, чтобы увидеть профиль", onLoginClick)
+}
+
+@Composable
+private fun ProfileContent(
+    profile: Profile,
+    onPoemClick: (String) -> Unit,
+    onLogout: () -> Unit,
+    viewModel: ProfileViewModel
+) {
     val listState = rememberLazyListState()
 
+    LaunchedEffect(profile.id) { viewModel.load(profile) }
     LaunchedEffect(viewModel.page) { listState.scrollToItem(0) }
 
     LazyColumn(
@@ -50,7 +84,7 @@ fun ProfileScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item { ProfileBanner() }
-        item { ProfileInfoCard(viewModel.profile, viewModel.registeredAt) }
+        item { ProfileInfoCard(profile, formatDate(profile.createdAt)) }
         item {
             OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) {
                 Text("Выйти из аккаунта")
@@ -78,6 +112,26 @@ fun ProfileScreen(
         item { HorizontalDivider(color = Taupe, thickness = 1.5.dp) }
 
         when {
+            viewModel.showError -> item {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text("Не удалось загрузить данные профиля", fontSize = 16.sp)
+                    Button(onClick = viewModel::retry) { Text("Повторить") }
+                }
+            }
+            viewModel.showSpinner -> item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(220.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
             viewModel.isStats -> item {
                 SectionCard("Статистика", viewModel.statRows) { StatRow(it.first, it.second) }
             }
@@ -96,7 +150,7 @@ fun ProfileScreen(
             }
         }
 
-        if (!viewModel.isStats) {
+        if (viewModel.loaded && !viewModel.isStats) {
             item {
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     Pagination(viewModel.page, viewModel.pageCount, viewModel::openPage)
@@ -105,3 +159,8 @@ fun ProfileScreen(
         }
     }
 }
+
+private fun formatDate(createdAt: String?): String =
+    runCatching {
+        LocalDate.parse(createdAt!!.take(10)).format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+    }.getOrDefault("—")

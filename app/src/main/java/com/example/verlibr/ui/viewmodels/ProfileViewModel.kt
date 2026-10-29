@@ -5,12 +5,16 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.verlibr.data.PoemPreview
 import com.example.verlibr.data.PoemRating
 import com.example.verlibr.data.Profile
 import com.example.verlibr.data.Review
+import com.example.verlibr.data.network.ProfileService
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
 enum class ProfileSection(val label: String) {
@@ -28,50 +32,71 @@ enum class ProfileTab(val label: String, val sections: List<ProfileSection>) {
 
 class ProfileViewModel : ViewModel() {
 
-    // TODO: заменить заглушки запросами к Supabase
-    val profile = Profile(
-        id = "me",
-        name = "Nickname",
-        email = "",
-        bio = "Биография так называемая",
-        createdAt = "2026-02-28"
-    )
+    private var currentProfile: Profile? = null
+    private var createdDate: LocalDate? = null
+    private var job: Job? = null
 
-    private val createdDate: LocalDate? = profile.createdAt?.take(10)?.let { LocalDate.parse(it) }
+    // ---- загрузка ----
+    /** Данные хотя бы раз успешно загружены для текущего пользователя. */
+    var loaded by mutableStateOf(false)
+        private set
+    var loading by mutableStateOf(false)
+        private set
+    var error by mutableStateOf(false)
+        private set
 
-    val registeredAt: String =
-        createdDate?.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")) ?: "—"
+    val showSpinner: Boolean get() = !loaded && !error
+    val showError: Boolean get() = !loaded && error
 
-    private fun mockReviews(prefix: String, author: String, liked: Boolean) = List(8) {
-        Review(
-            id = "$prefix$it",
-            author = author,
-            title = "Над заледенелым каналом: разговор с городом и собой",
-            text = "Короткое, но ёмкое стихотворение, в котором пейзаж становится исповедью. " +
-                "Автору удивительно точно удалось передать щемящее чувство, когда прошлое давит на плечи.",
-            scores = listOf(9, 9, 9, 9, 9),
-            date = LocalDate.of(2026, 2, 28),
-            likes = 7,
-            liked = liked
-        )
+    private var myReviews by mutableStateOf<List<Review>>(emptyList())
+    private var myRatings by mutableStateOf<List<PoemRating>>(emptyList())
+    private var likedReviews by mutableStateOf<List<Review>>(emptyList())
+    private var likedPoems by mutableStateOf<List<PoemPreview>>(emptyList())
+    private var favoritesCount by mutableIntStateOf(0)
+
+    /** Вызывается при открытии экрана; уже загруженные данные остаются на экране, пока идёт обновление. */
+    fun load(profile: Profile) {
+        if (currentProfile?.id != profile.id) {
+            myReviews = emptyList()
+            myRatings = emptyList()
+            likedReviews = emptyList()
+            likedPoems = emptyList()
+            favoritesCount = 0
+            loaded = false
+            page = 1
+        }
+        currentProfile = profile
+        createdDate = runCatching { LocalDate.parse(profile.createdAt!!.take(10)) }.getOrNull()
+
+        job?.cancel()
+        job = viewModelScope.launch {
+            loading = true
+            error = false
+            try {
+                val data = ProfileService.load(profile.id, profile.name)
+                myReviews = data.myReviews
+                myRatings = data.myRatings
+                likedReviews = data.likedReviews
+                likedPoems = data.likedPoems
+                favoritesCount = data.favoritesCount
+                loaded = true
+                page = page.coerceIn(1, pageCount)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                e.printStackTrace()
+                error = true
+            } finally {
+                loading = false
+            }
+        }
     }
 
-    private val myReviews = mockReviews("r", profile.name, liked = false)
-    private val likedReviews = mockReviews("lr", "Владислав Савенко", liked = true)
-
-    private val myRatings = List(6) {
-        PoemRating(
-            poem = PoemPreview("m$it", "Канал Грибоедова", "Владислав Савенко", 2026),
-            scores = listOf(9, 14, 12, 7, 16)
-        )
+    fun retry() {
+        currentProfile?.let { load(it) }
     }
 
-    private val likedPoems = List(12) {
-        PoemPreview("l$it", "Канал Грибоедова", "Владислав Савенко", 2026, likes = 45, comments = 45)
-    }
-
-    private val favoritesCount = 14
-
+    // ---- вкладки и страницы ----
     var tab by mutableStateOf(ProfileTab.Reviews)
         private set
     var section by mutableStateOf(ProfileSection.MyReviews)
@@ -108,7 +133,8 @@ class ProfileViewModel : ViewModel() {
         get() = listOf(
             "Дней с нами" to daysRegistered().toString(),
             "Рецензий написано" to myReviews.size.toString(),
-            "Оценок поставлено" to myRatings.size.toString(),
+            // рецензия — тоже оценка, поэтому считаем обе группы
+            "Оценок поставлено" to (myReviews.size + myRatings.size).toString(),
             "Стихов в избранном" to favoritesCount.toString(),
             "Лайков поставлено" to (likedReviews.size + likedPoems.size).toString(),
             "Лайков получено" to myReviews.sumOf { it.likes }.toString()

@@ -14,8 +14,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,6 +52,7 @@ import com.example.verlibr.ui.theme.Taupe
 @Composable
 fun AppHeader(
     userName: String?,
+    loading: Boolean,
     onLogoClick: () -> Unit,
     onLoginClick: () -> Unit,
     onProfileClick: () -> Unit
@@ -72,22 +73,37 @@ fun AppHeader(
             }
         },
         actions = {
-            Surface(
-                onClick = if (userName == null) onLoginClick else onProfileClick,
-                shape = RoundedCornerShape(4.dp),
-                color = MaterialTheme.colorScheme.secondary,
-                contentColor = MaterialTheme.colorScheme.onSecondary,
-                modifier = Modifier.padding(end = 16.dp)
-            ) {
-                Text(
-                    text = userName ?: "Вход",
-                    fontSize = 14.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .widthIn(max = 140.dp)
-                        .padding(horizontal = 14.dp, vertical = 4.dp)
-                )
+            // пока сессия поднимается, кнопку не показываем, чтобы «Вход» не мигал у залогиненного
+            if (!loading) {
+                if (userName != null) {
+                    // залогиненный: просто имя, без рамки и фона
+                    Text(
+                        text = userName,
+                        fontSize = 16.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .widthIn(max = 140.dp)
+                            .clickable(onClick = onProfileClick)
+                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                    )
+                } else {
+                    Surface(
+                        onClick = onLoginClick,
+                        shape = RoundedCornerShape(4.dp),
+                        color = MaterialTheme.colorScheme.secondary,
+                        contentColor = MaterialTheme.colorScheme.onSecondary,
+                        modifier = Modifier.padding(end = 16.dp)
+                    ) {
+                        Text(
+                            text = "Вход",
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)
+                        )
+                    }
+                }
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(

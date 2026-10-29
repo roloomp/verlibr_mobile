@@ -1,15 +1,21 @@
 package com.example.verlibr.ui.viewmodels
 
-import com.example.verlibr.data.PoemPreview
 import com.example.verlibr.data.PoemsPage
+import com.example.verlibr.data.network.PoemService
 
 class FavoriteViewModel : PagedPoemsViewModel() {
 
-    // TODO: заменить заглушку запросом к Supabase (таблица favorites)
-    private val all = List(70) {
-        PoemPreview("p$it", "Канал Грибоедова", "Владислав Савенко", 2026, likes = 45, comments = 45)
+    private var userId: String? = null
+
+    /** При смене пользователя список перезагружается. */
+    fun setUser(id: String?) {
+        if (id == userId) return
+        userId = id
+        refresh()
     }
 
-    override suspend fun load(page: Int, pageSize: Int): PoemsPage =
-        PoemsPage(all.drop((page - 1) * pageSize).take(pageSize), all.size)
+    override suspend fun load(page: Int, pageSize: Int): PoemsPage {
+        val uid = userId ?: return PoemsPage(emptyList(), 0)
+        return PoemService.favorites(uid, page, pageSize)
+    }
 }

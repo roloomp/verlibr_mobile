@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -29,19 +30,26 @@ import com.example.verlibr.ui.viewmodels.PagedPoemsViewModel
 @Composable
 fun PoemListScreen(
     viewModel: PagedPoemsViewModel,
-    onPoemClick: (String) -> Unit
+    onPoemClick: (String) -> Unit,
+    header: (@Composable () -> Unit)? = null
 ) {
     val listState = rememberLazyListState()
 
     LaunchedEffect(Unit) { viewModel.refresh() }
     LaunchedEffect(viewModel.page) { listState.scrollToItem(0) }
 
+    // Пагинация вынесена из списка и закреплена внизу: так «1» не прыгает вверх
+    // под пустым блоком или спиннером и стоит на одном месте при загрузке.
+    Column(Modifier.fillMaxSize()) {
     LazyColumn(
         state = listState,
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .weight(1f)
+            .fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = 28.dp, vertical = 22.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
+        if (header != null) item { header() }
         when {
             viewModel.error -> item {
                 Column(
@@ -73,12 +81,16 @@ fun PoemListScreen(
                 PoemCard(poem) { onPoemClick(poem.id) }
             }
         }
-        if (!viewModel.error) {
-            item {
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Pagination(viewModel.page, viewModel.pageCount, viewModel::openPage)
-                }
-            }
+    }
+    if (!viewModel.error) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp, bottom = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Pagination(viewModel.page, viewModel.pageCount, viewModel::openPage)
         }
+    }
     }
 }

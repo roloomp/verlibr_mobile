@@ -29,8 +29,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.foundation.text.KeyboardOptions
-import com.example.verlibr.data.Profile
-import com.example.verlibr.data.network.AuthService
 import kotlinx.coroutines.launch
 
 class AuthController {
@@ -40,19 +38,22 @@ class AuthController {
     var showRegister by mutableStateOf(false)
         private set
 
-    /** null — не залогинен, иначе — профиль */
-    var profile by mutableStateOf<Profile?>(null)
+    /** Идёт запрос — кнопки в диалогах блокируются. */
+    var busy by mutableStateOf(false)
         private set
 
-    val isLoggedIn: Boolean get() = profile != null
+    /** Текст ошибки, показывается прямо в диалоге (снекбар скрыт под окном диалога). */
+    var error by mutableStateOf<String?>(null)
+        private set
 
-    fun openLogin() { showLogin = true }
-    fun closeLogin() { showLogin = false }
+    fun openLogin() { error = null; showLogin = true }
+    fun closeLogin() { showLogin = false; error = null }
 
-    fun openRegister() { showRegister = true }
-    fun closeRegister() { showRegister = false }
+    fun openRegister() { error = null; showRegister = true }
+    fun closeRegister() { showRegister = false; error = null }
 
-    fun updateProfile(p: Profile?) { profile = p }
+    fun changeBusy(value: Boolean) { busy = value }
+    fun changeError(value: String?) { error = value }
 }
 
 @Composable
@@ -61,23 +62,32 @@ fun rememberAuthController(): AuthController = remember { AuthController() }
 @Composable
 fun AuthDialogs(
     controller: AuthController,
-    snackbarHostState: SnackbarHostState
+    snackbarHostState: SnackbarHostState,
+    onLogin: suspend (email: String, password: String) -> Result<Unit>,
+    onRegister: suspend (name: String, email: String, password: String) -> Result<Unit>
 ) {
     val scope = rememberCoroutineScope()
 
     if (controller.showLogin) {
         LoginDialog(
+            error = controller.error,
+            enabled = !controller.busy,
             onDismiss = controller::closeLogin,
             onLogin = { email, password ->
-                scope.launch {
-                    val success = AuthService.login(email, password)
-                    controller.closeLogin()
-                    if (success) {
-                        val profile = AuthService.getCurrentProfile()
-                        controller.updateProfile(profile)
-                        snackbarHostState.showSnackbar("Вы вошли как ${profile?.name ?: email}")
-                    } else {
-                        snackbarHostState.showSnackbar("Неверный email или пароль")
+                if (email.isBlank() || password.isBlank()) {
+                    controller.changeError("Введите email и пароль")
+                } else if (!controller.busy) {
+                    scope.launch {
+                        controller.changeBusy(true)
+                        controller.changeError(null)
+                        val result = onLogin(email, password)
+                        controller.changeBusy(false)
+                        if (result.isSuccess) {
+                            controller.closeLogin()
+                            snackbarHostState.showSnackbar("Вы вошли в аккаунт")
+                        } else {
+                            controller.changeError(result.exceptionOrNull()?.message ?: "Не удалось войти")
+                        }
                     }
                 }
             },
@@ -90,16 +100,22 @@ fun AuthDialogs(
 
     if (controller.showRegister) {
         RegisterDialog(
+            error = controller.error,
+            enabled = !controller.busy,
             onDismiss = controller::closeRegister,
             onRegister = { email, name, password ->
-                scope.launch {
-                    val result = AuthService.register(name, email, password)
-                    controller.closeRegister()
-                    if (result.isSuccess) {
-                        controller.updateProfile(AuthService.getCurrentProfile())
-                        snackbarHostState.showSnackbar("Аккаунт создан")
-                    } else {
-                        snackbarHostState.showSnackbar("Ошибка: ${result.exceptionOrNull()?.message}")
+                if (!controller.busy) {
+                    scope.launch {
+                        controller.changeBusy(true)
+                        controller.changeError(null)
+                        val result = onRegister(name, email, password)
+                        controller.changeBusy(false)
+                        if (result.isSuccess) {
+                            controller.closeRegister()
+                            snackbarHostState.showSnackbar("Аккаунт создан")
+                        } else {
+                            controller.changeError(result.exceptionOrNull()?.message ?: "Не удалось создать аккаунт")
+                        }
                     }
                 }
             },
@@ -113,6 +129,8 @@ fun AuthDialogs(
 
 @Composable
 fun LoginDialog(
+    error: String?,
+    enabled: Boolean,
     onDismiss: () -> Unit,
     onLogin: (email: String, password: String) -> Unit,
     onGoToRegister: () -> Unit
@@ -124,10 +142,15 @@ fun LoginDialog(
         Text("Введите свои данные для входа в аккаунт", style = MaterialTheme.typography.bodyMedium)
         Field("Email *", email, { email = it }, "Ваш email", keyboardType = KeyboardType.Email)
         Field("Пароль *", password, { password = it }, "Ваш пароль", isPassword = true)
-        Button(onClick = { onLogin(email, password) }, modifier = Modifier.fillMaxWidth()) {
-            Text("Войти")
+        ErrorText(error)
+        Button(
+            onClick = { onLogin(email, password) },
+            enabled = enabled,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(if (enabled) "Войти" else "Подождите…")
         }
-        OutlinedButton(onClick = onGoToRegister, modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = onGoToRegister, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
             Text("Зарегистрироваться")
         }
     }
@@ -135,6 +158,8 @@ fun LoginDialog(
 
 @Composable
 fun RegisterDialog(
+    error: String?,
+    enabled: Boolean,
     onDismiss: () -> Unit,
     onRegister: (email: String, name: String, password: String) -> Unit,
     onGoToLogin: () -> Unit
@@ -167,7 +192,9 @@ fun RegisterDialog(
             isError = showErrors && !passwordsMatch,
             isPassword = true
         )
+        ErrorText(error)
         Button(
+            enabled = enabled,
             onClick = {
                 showErrors = true
                 if (email.isNotBlank() && name.isNotBlank() && password.isNotBlank() && passwordsMatch) {
@@ -176,7 +203,7 @@ fun RegisterDialog(
             },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Создать аккаунт")
+            Text(if (enabled) "Создать аккаунт" else "Подождите…")
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -186,6 +213,13 @@ fun RegisterDialog(
             Text("Уже есть аккаунт? ", style = MaterialTheme.typography.bodyMedium)
             TextButton(onClick = onGoToLogin) { Text("Войти") }
         }
+    }
+}
+
+@Composable
+private fun ErrorText(error: String?) {
+    if (error != null) {
+        Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
